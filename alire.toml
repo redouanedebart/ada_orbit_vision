@@ -1,0 +1,13 @@
+name = "ada_orbit_vision"
+description = "Geospatial orbital simulation and satellite image processing"
+version = "0.1.0-dev"
+
+authors = ["Redouane DEBART"]
+maintainers = ["Redouane DEBART <redouane.debart@gmail.com>"]
+maintainers-logins = ["redouanedebart"]
+licenses = "MIT OR Apache-2.0 WITH LLVM-exception"
+
+executables = ["ada_orbit_vision"]
+
+[[depends-on]]
+sdlada = "~0.2"

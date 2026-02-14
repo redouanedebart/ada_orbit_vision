@@ -1,0 +1,7 @@
+/obj/
+/bin/
+/alire/
+/config/
+*.o
+*.ali
+b__*.ad?
