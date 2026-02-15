@@ -134,7 +134,7 @@ package body Engine.TLE_Parser is
    --        1.0 = 1er janvier 00:00:00 UTC
    --
    --  ====================================================
-   --  =  A TOI DE JOUER !                                =
+   --  =  TODO :                               =
    --  =                                                   =
    --  =  Etapes :                                         =
    --  =  1. Convertir Year_2D en annee 4 chiffres :       =
@@ -169,9 +169,8 @@ package body Engine.TLE_Parser is
    is
       pragma Unreferenced (Year_2D, Day_Frac);
    begin
-      --  Remplacer cette ligne par l'implementation
-      raise Program_Error
-        with "Parse_Epoch non implemente";
+      
+      
       return Ada.Calendar.Clock;  --  jamais atteint
    end Parse_Epoch;
 
@@ -190,7 +189,7 @@ package body Engine.TLE_Parser is
    --    - Valide si (somme mod 10) = checksum
    --
    --  ====================================================
-   --  =  A TOI DE JOUER !                                =
+   --  =  TODO :                               =
    --  =                                                   =
    --  =  Indice : Character'Pos (C) - Character'Pos ('0')=
    --  =  convertit un chiffre en entier.                  =
