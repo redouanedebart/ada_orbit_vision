@@ -36,16 +36,6 @@ package body Engine.Collision is
    ----------------------------------------------------------
    --  Is_Collision
    ----------------------------------------------------------
-   --  ====================================================
-   --  =  TODO :                                          =
-   --  =                                                   =
-   --  =  Utiliser Evaluate pour obtenir le resultat,      =
-   --  =  puis retourner le champ Is_Alert.                =
-   --  =                                                   =
-   --  =  C'est un one-liner :                             =
-   --  =    return Evaluate (A, B, Threshold).Is_Alert;    =
-   --  ====================================================
-
    function Is_Collision
      (A, B      : Common.Physics.Position_Vector;
       Threshold : Common.Physics.Coordinate :=
@@ -53,9 +43,7 @@ package body Engine.Collision is
       return Boolean
    is
    begin
-      raise Program_Error
-        with "Is_Collision non implemente";
-      return False;
+      return Evaluate (A, B, Threshold).Is_Alert;
    end Is_Collision;
 
 end Engine.Collision;

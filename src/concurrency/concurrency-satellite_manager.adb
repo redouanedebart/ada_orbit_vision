@@ -52,22 +52,10 @@ package body Concurrency.Satellite_Manager is
 
             Snap : Ground_Station.Satellite_Snapshot;
          begin
-            --  ============================================
-            --  =  TODO : Construire le Snapshot           =
-            --  =                                           =
-            --  =  Remplir les champs de Snap :            =
-            --  =    Snap.Id := TLE_R.Catalog_Id;          =
-            --  =    Snap.Name := TLE_R.Name;              =
-            --  =    Snap.Name_Len := TLE_R.Name_Length;   =
-            --  =    Snap.State := SV;                     =
-            --  =                                           =
-            --  =  Puis deposer dans la station :          =
-            --  =    Ground_Station.Station.Update_Position =
-            --  =      (Snap);                             =
-            --  ============================================
-
-            raise Program_Error
-              with "Snapshot builder non implemente";
+            Snap.Id       := TLE_R.Catalog_Id;
+            Snap.Name     := TLE_R.Name;
+            Snap.Name_Len := TLE_R.Name_Length;
+            Snap.State    := SV;
 
             Ground_Station.Station.Update_Position
               (Snap);

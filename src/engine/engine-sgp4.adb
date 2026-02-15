@@ -184,35 +184,26 @@ package body Engine.SGP4 is
       M_T := M_T - Two_Pi
         * Long_Float'Floor (M_T / Two_Pi);
 
-      --  ================================================
-      --  =  TODO : Equation de Kepler (Newton-Raphson)   =
-      --  =                                                =
-      --  =  E_Anom := M_T;  --  estimation initiale       =
-      --  =  for Iter in 1 .. Max_Iter loop                =
-      --  =     Diff := E_Anom                             =
-      --  =       - E_T * Long_Float                       =
-      --  =           (EF.Sin (Float (E_Anom)))            =
-      --  =       - M_T;                                   =
-      --  =     exit when abs (Diff) < 1.0E-12;           =
-      --  =     E_Anom := E_Anom                           =
-      --  =       - Diff                                   =
-      --  =       / (1.0 - E_T * Long_Float               =
-      --  =           (EF.Cos (Float (E_Anom))));          =
-      --  =  end loop;                                     =
-      --  =                                                =
-      --  =  Rappel : M = E - e * sin(E)                   =
-      --  =  Newton : E_{n+1} = E_n - f/f'                =
-      --  =    f(E)  = E - e*sin(E) - M                   =
-      --  =    f'(E) = 1 - e*cos(E)                       =
-      --  ================================================
-
+      --  2. Equation de Kepler (Newton-Raphson)
+      --  f(E)  = E - e*sin(E) - M
+      --  f'(E) = 1 - e*cos(E)
       E_Anom := M_T;
-      raise Program_Error
-        with "Kepler solver non implemente";
+      for Iter in 1 .. Max_Iter loop
+         Diff := E_Anom
+           - E_T * Long_Float
+               (EF.Sin (Float (E_Anom)))
+           - M_T;
+         exit when abs (Diff) < 1.0E-12;
+         E_Anom := E_Anom
+           - Diff
+           / (1.0 - E_T * Long_Float
+               (EF.Cos (Float (E_Anom))));
+      end loop;
 
       --  3. Anomalie vraie et rayon
-      Sin_E := EF.Sin (Float (E_Anom));
+      Sin_E := EF.Sin (Float (E_Anom));  --  reserve pour vitesse
       Cos_E := EF.Cos (Float (E_Anom));
+      pragma Unreferenced (Sin_E);
 
       Nu := 2.0 * Long_Float
         (EF.Arctan

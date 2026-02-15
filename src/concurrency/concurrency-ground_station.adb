@@ -30,37 +30,25 @@ package body Concurrency.Ground_Station is
       -------------------------------------------------------
       --  Get_Position
       -------------------------------------------------------
-      --  ================================================
-      --  =  TODO :                                      =
-      --  =                                               =
-      --  =  Chercher Id dans Data via Data.Find (Id).   =
-      --  =  Si le curseur /= No_Element :               =
-      --  =    Found := True;                            =
-      --  =    Snap  := Element (curseur);               =
-      --  =  Sinon :                                     =
-      --  =    Found := False;                           =
-      --  =                                               =
-      --  =  Types utiles :                              =
-      --  =    Snapshot_Maps.Cursor                      =
-      --  =    Snapshot_Maps.No_Element                  =
-      --  =    Snapshot_Maps.Element (C)                 =
-      --  ================================================
-
       procedure Get_Position
         (Id    : Sat_Id;
          Snap  : out Satellite_Snapshot;
          Found : out Boolean)
       is
-         pragma Unreferenced (Id);
+         use Snapshot_Maps;
+         C : constant Cursor := Data.Find (Id);
       begin
-         Found := False;
-         Snap := Satellite_Snapshot'
-           (Id       => 1,
-            Name     => (others => ' '),
-            Name_Len => 0,
-            State    => <>);
-         raise Program_Error
-           with "Get_Position non implemente";
+         if C /= No_Element then
+            Found := True;
+            Snap := Element (C);
+         else
+            Found := False;
+            Snap := Satellite_Snapshot'
+              (Id       => 1,
+               Name     => (others => ' '),
+               Name_Len => 0,
+               State    => <>);
+         end if;
       end Get_Position;
 
       -------------------------------------------------------
