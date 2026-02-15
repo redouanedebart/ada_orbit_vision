@@ -133,45 +133,37 @@ package body Engine.TLE_Parser is
    --    - Jour fractionnaire :
    --        1.0 = 1er janvier 00:00:00 UTC
    --
-   --  ====================================================
-   --  =  TODO :                               =
-   --  =                                                   =
-   --  =  Etapes :                                         =
-   --  =  1. Convertir Year_2D en annee 4 chiffres :       =
-   --  =     si Year_2D <= 56 alors 2000 + Year_2D         =
-   --  =     sinon 1900 + Year_2D                          =
-   --  =                                                   =
-   --  =  2. Date du 1er janvier de cette annee :           =
-   --  =     Ada.Calendar.Time_Of (Full_Year, 1, 1, 0.0)   =
-   --  =                                                   =
-   --  =  3. Separer Day_Frac :                            =
-   --  =     Whole_Days :=                                 =
-   --  =       Integer (Long_Float'Floor (Day_Frac))       =
-   --  =     (jour 1 = 1er jan => soustraire 1)            =
-   --  =     Frac := Day_Frac - Long_Float (Whole_Days)    =
-   --  =                                                   =
-   --  =  4. Fraction en secondes :                        =
-   --  =     Day_Seconds := Duration (Frac * 86_400.0)     =
-   --  =                                                   =
-   --  =  5. Ajouter a Jan_1 :                             =
-   --  =     Ada.Calendar.Arithmetic."+"                    =
-   --  =       (Jan_1, Whole_Days - 1)                     =
-   --  =     puis + Day_Seconds (Ada.Calendar."+" normal)   =
-   --  =                                                   =
-   --  =  Types utiles :                                   =
-   --  =    Ada.Calendar.Year_Number                       =
-   --  =    Ada.Calendar.Arithmetic.Day_Count              =
-   --  ====================================================
+   --  Annee 2D -> 4 chiffres, puis Jan_1 + jours + secondes.
 
    function Parse_Epoch
      (Year_2D  : Natural;
       Day_Frac : Long_Float) return Ada.Calendar.Time
    is
-      pragma Unreferenced (Year_2D, Day_Frac);
+      use Ada.Calendar;
+      use Ada.Calendar.Arithmetic;
+
+      Year        : Year_Number;
+      Jan_1       : Time;
+      Whole_Days  : Integer;
+      Frac        : Long_Float;
+      Day_Seconds : Duration;
    begin
-      
-      
-      return Ada.Calendar.Clock;  --  jamais atteint
+      if Year_2D <= 56 then
+         Year := Year_Number (2000 + Year_2D);
+      else
+         Year := Year_Number (1900 + Year_2D);
+      end if;
+
+      Jan_1 := Time_Of (Year, 1, 1, 0.0);
+      Whole_Days :=
+        Integer (Long_Float'Floor (Day_Frac)) - 1;
+      Frac :=
+        Day_Frac - Long_Float (Whole_Days + 1);
+      Day_Seconds := Duration (Frac * 86_400.0);
+
+      return Jan_1
+        + Day_Count (Whole_Days)
+        + Day_Seconds;
    end Parse_Epoch;
 
    ----------------------------------------------------------
@@ -188,34 +180,39 @@ package body Engine.TLE_Parser is
    --    - Checksum attendu = caractere en position 69
    --    - Valide si (somme mod 10) = checksum
    --
-   --  ====================================================
-   --  =  TODO :                               =
-   --  =                                                   =
-   --  =  Indice : Character'Pos (C) - Character'Pos ('0')=
-   --  =  convertit un chiffre en entier.                  =
-   --  =                                                   =
-   --  =  Structure suggeree :                             =
-   --  =    Sum : Natural := 0;                            =
-   --  =    for I in Line'First .. Line'Last - 1 loop      =
-   --  =       C := Line (I);                              =
-   --  =       if C in '0' .. '9' then                     =
-   --  =          Sum := Sum + ???;                        =
-   --  =       elsif C = '-' then                          =
-   --  =          Sum := Sum + ???;                        =
-   --  =       end if;                                     =
-   --  =    end loop;                                      =
-   --  =    Expected := ???  (dernier char => entier)       =
-   --  =    return (Sum mod 10) = Expected;                =
-   --  ====================================================
+   --  Somme modulo 10 des 68 premiers caracteres.
 
    function Valid_Checksum (Line : String) return Boolean
    is
-      pragma Unreferenced (Line);
+      Sum      : Natural := 0;
+      Expected : Natural;
+      C        : Character;
    begin
-      --  Remplacer cette ligne par l'implementation
-      raise Program_Error
-        with "Valid_Checksum non implemente";
-      return False;  --  jamais atteint
+      if Line'Length < 2 then
+         return False;
+      end if;
+
+      for I in Line'First .. Line'Last - 1 loop
+         C := Line (I);
+         if C in '0' .. '9' then
+            Sum := Sum
+              + Character'Pos (C)
+              - Character'Pos ('0');
+         elsif C = '-' then
+            Sum := Sum + 1;
+         end if;
+      end loop;
+
+      --  Dernier caractere = checksum attendu
+      C := Line (Line'Last);
+      if C not in '0' .. '9' then
+         return False;
+      end if;
+
+      Expected :=
+        Character'Pos (C) - Character'Pos ('0');
+
+      return (Sum mod 10) = Expected;
    end Valid_Checksum;
 
    ----------------------------------------------------------
