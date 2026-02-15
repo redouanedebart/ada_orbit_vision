@@ -26,18 +26,14 @@ package body Common.Physics is
    ---------------------------------------------------------------------------
    --  Norme (magnitude) d'un vecteur position
    ---------------------------------------------------------------------------
-   --  TODO : Implémenter cette fonction.
-   --  Formule : sqrt(X² + Y² + Z²)
-   --  Indice : même approche que Distance — convertir en Float,
-   --  calculer Sqrt via EF.Sqrt, reconvertir en Coordinate.
-   --  Bonus : réutiliser Distance avec un vecteur origine (0, 0, 0)
-   --  serait élégant mais moins performant (allocation d'un record).
 
-   function Norm (V : Position_Vector) return Coordinate is
+   function Norm (V : Position_Vector) return Coordinate
+   is
+      Fx : constant Float := Float (V.X);
+      Fy : constant Float := Float (V.Y);
+      Fz : constant Float := Float (V.Z);
    begin
-      --  TODO : remplacer ce « raise » par le vrai calcul
-      raise Program_Error with "Norm : pas encore implémenté";
-      return 0.0;
+      return Coordinate (EF.Sqrt (Fx * Fx + Fy * Fy + Fz * Fz));
    end Norm;
 
 end Common.Physics;

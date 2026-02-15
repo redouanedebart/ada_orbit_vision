@@ -113,7 +113,7 @@ package body Common.Logging is
    begin
       Logger.Set_Config (File_Path, Console, Min_Level);
       Logger.Write_Entry
-        (Info, "Logging", "Logger initialisé — niveau minimum : "
+        (Info, "Logging", "Logger initialise - niveau minimum : "
          & Log_Level'Image (Min_Level));
    end Initialize;
 

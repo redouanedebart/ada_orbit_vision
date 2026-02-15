@@ -82,7 +82,6 @@ package Common.Physics is
    Earth_Rotation_Rate : constant :=
       2.0 * Ada.Numerics.Pi / 86_164.1;
 
-
    --  Seuil de collision par défaut (km)
    --  Deux objets plus proches que cette distance déclenchent une alerte.
    Default_Collision_Threshold_Km : constant := 10.0;
@@ -92,15 +91,10 @@ package Common.Physics is
    ---------------------------------------------------------------------------
 
    --  Distance euclidienne entre deux positions dans l'espace ECI
-   --  TODO : Implémenter dans common-physics.adb
-   --  Formule : sqrt((Ax-Bx)² + (Ay-By)² + (Az-Bz)²)
-   --  Attention : les types fixed-point ne supportent pas directement
-   --  sqrt — il faudra convertir en Float pour le calcul.
    function Distance
      (A, B : Position_Vector) return Coordinate;
 
    --  Norme (magnitude) d'un vecteur position
-   --  TODO : Implémenter dans common-physics.adb
    function Norm (V : Position_Vector) return Coordinate;
 
 end Common.Physics;
