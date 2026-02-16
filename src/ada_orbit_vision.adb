@@ -13,6 +13,7 @@
 with System;
 with Ada.Text_IO;
 with Ada.Directories;
+with Ada.Containers.Vectors;
 with Common.Logging;
 with Common.Physics;
 with Engine.TLE_Parser;
@@ -44,16 +45,36 @@ procedure Ada_Orbit_Vision is
    Threshold        : aliased Common.Physics.Coordinate :=
      Common.Physics.Default_Collision_Threshold_Km;
 
-   --  Nombre maximum de satellites supportes
-   Max_Satellites : constant := 20;
+   --  Nombre maximum de satellites (1 tache Ada par satellite)
+   Max_Satellites : constant := 200;
 
-   --  Tableau de taches tracker
-   Trackers : array (1 .. Max_Satellites)
-     of Concurrency.Satellite_Manager.Tracker_Access;
-   Num_Trackers : Natural := 0;
+   --  Vecteur dynamique de taches tracker
+   use type Concurrency.Satellite_Manager.Tracker_Access;
+
+   package Tracker_Vectors is new Ada.Containers.Vectors
+     (Index_Type   => Positive,
+      Element_Type =>
+        Concurrency.Satellite_Manager.Tracker_Access);
+
+   Trackers : Tracker_Vectors.Vector;
 
    --  Moniteur d'alertes
    Monitor : Concurrency.Alert_System.Monitor_Access;
+
+   -------------------------------------------------------
+   --  Strip_CR : retire le \r final (fichiers Windows)
+   -------------------------------------------------------
+
+   function Strip_CR (S : String; Len : Natural) return Natural
+   is
+   begin
+      if Len > 0
+        and then S (Len) = ASCII.CR
+      then
+         return Len - 1;
+      end if;
+      return Len;
+   end Strip_CR;
 
    -------------------------------------------------------
    --  Load_TLEs : lit le fichier TLE et lance les taches
@@ -81,6 +102,7 @@ procedure Ada_Orbit_Vision is
       while not End_Of_File (File) loop
          --  Lire le bloc de 3 lignes
          Get_Line (File, Line_0, Len_0);
+         Len_0 := Strip_CR (Line_0, Len_0);
 
          --  Ignorer les lignes vides et commentaires
          if Len_0 = 0
@@ -93,11 +115,13 @@ procedure Ada_Orbit_Vision is
             exit;
          end if;
          Get_Line (File, Line_1, Len_1);
+         Len_1 := Strip_CR (Line_1, Len_1);
 
          if End_Of_File (File) then
             exit;
          end if;
          Get_Line (File, Line_2, Len_2);
+         Len_2 := Strip_CR (Line_2, Len_2);
 
          --  Verifier que Line_1 commence par '1'
          --  et Line_2 par '2'
@@ -111,16 +135,23 @@ procedure Ada_Orbit_Vision is
             begin
                TLE := Engine.TLE_Parser.Parse
                  (Line_0 (1 .. Len_0),
-                  Line_1 (1 .. Len_1),
-                  Line_2 (1 .. Len_2));
+                  Line_1 (1 .. 69),
+                  Line_2 (1 .. 69));
 
-               if Num_Trackers < Max_Satellites then
-                  Num_Trackers := Num_Trackers + 1;
-                  Trackers (Num_Trackers) := new
-                    Concurrency.Satellite_Manager
-                      .Satellite_Tracker
-                        (Refresh_Interval'Unchecked_Access);
-                  Trackers (Num_Trackers).Start (TLE);
+               if Natural (Trackers.Length) < Max_Satellites
+               then
+                  declare
+                     T : constant
+                       Concurrency.Satellite_Manager
+                         .Tracker_Access := new
+                       Concurrency.Satellite_Manager
+                         .Satellite_Tracker
+                           (Refresh_Interval
+                              'Unchecked_Access);
+                  begin
+                     T.Start (TLE);
+                     Trackers.Append (T);
+                  end;
 
                   Common.Logging.Log_Info
                     ("Main",
@@ -144,7 +175,7 @@ procedure Ada_Orbit_Vision is
       Common.Logging.Log_Info
         ("Main",
          "Charge"
-         & Num_Trackers'Image
+         & Natural'Image (Natural (Trackers.Length))
          & " satellite(s)");
    end Load_TLEs;
 
@@ -262,8 +293,8 @@ begin
    Common.Logging.Log_Info
      ("Main", "Arret en cours...");
 
-   for I in 1 .. Num_Trackers loop
-      Trackers (I).Stop;
+   for T of Trackers loop
+      T.Stop;
    end loop;
 
    Monitor.Stop;
