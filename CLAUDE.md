@@ -140,3 +140,96 @@ What it does:
 The `.desktop` file expects an icon at `assets/icon.png` — provide a 256x256 PNG.
 
 Requires `~/.local/bin` to be in `$PATH` (standard on most Linux desktops).
+
+## Plan d'action — Interface interactive
+
+### Phase 0 : Corrections prerequis (satellites invisibles)
+
+Les satellites ne s'affichent pas actuellement. Deux bugs identifies :
+
+**Bug 0.1 — TLE rejetés : retour chariot Windows (`\r`)**
+- `data/gp.txt` a des fins de lignes `\r\n` (Windows). Sur Linux, `Get_Line` conserve le `\r`, donnant des lignes de 70 caractères au lieu de 69.
+- Le parseur TLE exige `Line_1'Length = 69` → tous les TLE sont rejetés → 0 satellites chargés.
+- **Correction** : dans `Load_TLEs` (`ada_orbit_vision.adb`), passer `Line_1 (1 .. 69)` et `Line_2 (1 .. 69)` au parseur (on sait déjà que `Len >= 69`). Idem pour `Line_0` : strip du `\r` via un helper `Strip_CR`.
+- Fichiers touchés : `src/ada_orbit_vision.adb`
+
+**Bug 0.2 — Max_Satellites = 20 en dur**
+- Le tableau `Trackers` est fixé à 20 entrées. `gp.txt` contient ~14 000 satellites.
+- **Correction** : remplacer le tableau fixe par un `Ada.Containers.Vectors` de `Tracker_Access`, sans limite arbitraire. Ou augmenter à un nombre raisonnable (ex: 200) pour un premier test.
+- Fichiers touchés : `src/ada_orbit_vision.adb`
+
+### Phase 1 : Bouton plein écran (toggle fullscreen)
+
+**Objectif** : touche F11 ou bouton SDL pour basculer entre fenêtré et plein écran.
+
+**Étapes** :
+1. **`ui-display.ads/.adb`** — Ajouter `procedure Toggle_Fullscreen` qui appelle `SDL_SetWindowFullscreen` avec le flag `SDL_WINDOW_FULLSCREEN_DESKTOP`. Stocker l'état courant (`Is_Fullscreen : Boolean`). Après le toggle, re-lire les dimensions fenêtre via `SDL_GetWindowSize` et mettre à jour `Win_W`/`Win_H`.
+2. **`ada_orbit_vision.adb`** — Dans la boucle d'événements, intercepter `Evt_Key_Down` avec scancode F11 (SDL_SCANCODE_F11 = 58). Appeler `UI.Display.Toggle_Fullscreen`.
+3. **`ui-display.adb`** — Étendre `Poll_Event` pour remonter le scancode dans `UI_Event.Key` (actuellement toujours 0).
+
+**Imports SDL2 nécessaires** :
+- `SDL_SetWindowFullscreen (Window, Flags)` — pour le toggle
+- `SDL_GetWindowSize (Window, W_ptr, H_ptr)` — pour récupérer les nouvelles dimensions
+
+### Phase 2 : Panel latéral — liste des satellites
+
+**Objectif** : un volet rétractable sur le côté droit listant les satellites trackés, avec nom, ID NORAD, et état.
+
+**Contrainte SDL2** : SDL2 n'a pas de widgets natifs. Deux approches :
+- **(A) Rendu SDL2 pur** — Dessiner le panel manuellement (rectangles, texte via SDL_ttf). Plus cohérent, pas de dépendance externe.
+- **(B) Overlay texte simple** — Sans SDL_ttf, afficher chaque satellite comme un rectangle coloré + son ID NORAD à côté (pas de vrai texte, juste des indicateurs visuels).
+
+**Approche retenue** : **(A) avec SDL_ttf** — Ajouter `libSDL2_ttf` aux dépendances pour le rendu texte. Essentiel pour un panel lisible.
+
+**Étapes** :
+1. **Dépendances** — Ajouter `-lSDL2_ttf` dans `ada_orbit_vision.gpr` (section Linker). Vérifier dans `install.sh` la présence de `libSDL2_ttf`. Embarquer une police monospace (ex: `assets/fonts/DejaVuSansMono.ttf`).
+2. **`ui-display.ads/.adb`** — Initialiser SDL_ttf (`TTF_Init`) dans `Initialize`, `TTF_Quit` dans `Shutdown`. Charger la police et exposer un handle via `Get_Font`.
+3. **`ui-renderer.ads/.adb`** — Nouveau module ou nouvelles procédures :
+   - `Draw_Panel (Rend, Snapshots, W, H, Panel_Width, Selected_Id)` — Dessine un rectangle semi-transparent à droite, puis pour chaque satellite : rectangle coloré + nom (tronqué) + ID NORAD. Le satellite sélectionné est mis en surbrillance (fond plus clair ou bordure).
+   - `Panel_Width` : constante (ex: 280 px) ou pourcentage de la largeur.
+   - État du panel (ouvert/fermé) : variable module-level `Panel_Open : Boolean`, toggle via touche Tab ou bouton.
+4. **`ada_orbit_vision.adb`** — Passer `Panel_Open` et `Selected_Sat_Id` au renderer. Ajuster la zone de carte : si panel ouvert, la map occupe `W - Panel_Width` pixels en largeur. Les projections `Lat_Lon_To_Pixel` doivent utiliser la largeur effective.
+
+**Données affichées par satellite** :
+- Nom (24 chars max, tronqué à ~20 pour le panel)
+- ID NORAD (5 chiffres)
+- Altitude approximative (calculable depuis `Norm(Position) - Earth_Radius_Km`)
+- Indicateur de couleur (même couleur que le point sur la carte)
+
+### Phase 3 : Sélection et surbrillance d'un satellite
+
+**Objectif** : cliquer sur un satellite (sur la carte ou dans le panel) pour le sélectionner. Le satellite sélectionné est mis en surbrillance partout.
+
+**Étapes** :
+1. **État de sélection** — Variable `Selected_Sat : Sat_Id` (0 = aucun) dans le module principal ou dans un état UI dédié.
+2. **Clic sur la carte** — Dans `Poll_Event`, remonter les coordonnées souris (`Mouse_X`, `Mouse_Y`) pour `Evt_Mouse_Click` (déjà prévu dans `UI_Event` mais non rempli). Dans la boucle principale, pour chaque satellite visible, tester si le clic est dans un rayon de ~10 px du point satellite. Si oui, `Selected_Sat := Snap.Id`.
+3. **Clic dans le panel** — Calculer quel satellite est sous le curseur en fonction de `Mouse_Y` et de la position de scroll du panel. Mapper `Y → index → Sat_Id`.
+4. **Rendu surbrillance carte** — Dans `Draw_Satellites`, si `Snap.Id = Selected_Sat` : dessiner un cercle plus grand (12px au lieu de 6), avec une bordure blanche pulsante (varier l'alpha avec le temps pour un effet de pulsation). Afficher le nom au-dessus du point.
+5. **Rendu surbrillance panel** — Dans `Draw_Panel`, le satellite sélectionné a un fond distinct (ex: bleu foncé au lieu de gris).
+
+### Phase 4 : Zone de vision satellite (footprint sur la carte)
+
+**Objectif** : quand un satellite est sélectionné, afficher sur la carte la zone qu'il « voit » (son empreinte au sol / footprint).
+
+**Calcul du footprint** :
+- L'angle de vue dépend de l'altitude : `half_angle = arccos(R_earth / (R_earth + altitude))`
+- Le footprint au sol est un cercle centré sur le nadir (ground track point) de rayon angulaire `half_angle`.
+- Sur la projection équirectangulaire, ce cercle devient une ellipse déformée (surtout aux hautes latitudes).
+
+**Étapes** :
+1. **`engine-collision.ads/.adb`** ou nouveau **`engine-footprint.ads/.adb`** — Fonction `Compute_Footprint_Radius (Altitude_Km : Long_Float) return Long_Float` retournant le rayon angulaire en radians. Fonction `Footprint_Polygon (Lat, Lon, Radius : Long_Float; N_Points : Positive) return array of (Lat, Lon)` retournant N points sur le contour du footprint (cercle en coordonnées sphériques → polygone lat/lon).
+2. **`ui-renderer.adb`** — Nouvelle procédure `Draw_Footprint (Rend, Lat, Lon, Radius, W, H, Color)`. Convertit les points du polygone en pixels via `Lat_Lon_To_Pixel`, puis dessine le contour avec `SDL_RenderDrawLine` (polygone fermé) et un remplissage semi-transparent.
+3. **`ada_orbit_vision.adb`** — Si `Selected_Sat /= 0`, calculer le footprint et appeler `Draw_Footprint` entre `Draw_Earth_Background` et `Draw_Satellites` (pour que les points satellites soient par-dessus).
+4. **Rendu** : contour blanc ou jaune (2px), remplissage semi-transparent (rgba 255, 255, 100, 40). Le footprint doit gérer le wrapping aux bords de la carte (longitude ±180°).
+
+### Ordre d'implémentation recommandé
+
+```
+Phase 0 (bugs)  →  Phase 1 (fullscreen)  →  Phase 2 (panel)  →  Phase 3 (sélection)  →  Phase 4 (footprint)
+   ↑ bloquant         indépendant              dépend de         dépend de 2               dépend de 3
+   pour tout                                    SDL_ttf
+```
+
+Phase 0 est un prérequis absolu — sans satellites visibles, rien d'autre n'a de sens.
+Phases 1 et 2 sont indépendantes et peuvent être développées en parallèle.
+Phases 3 et 4 sont séquentielles (la sélection doit exister avant le footprint).

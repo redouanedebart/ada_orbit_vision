@@ -3,6 +3,7 @@
 with Ada.Directories;
 with Common.Logging;
 with Interfaces.C.Strings;
+with System.Address_To_Access_Conversions;
 with Vision.Transformations;
 
 package body UI.Renderer is
@@ -43,6 +44,69 @@ package body UI.Renderer is
       return Interfaces.C.int
      with Import, Convention => C,
           External_Name => "SDL_RenderCopy";
+
+   function SDL_GetRendererInfo
+     (Renderer : System.Address;
+      Info     : System.Address)
+      return Interfaces.C.int
+     with Import, Convention => C,
+          External_Name => "SDL_GetRendererInfo";
+
+   function SDL_CreateRGBSurfaceWithFormat
+     (Flags  : Interfaces.Unsigned_32;
+      Width  : Interfaces.C.int;
+      Height : Interfaces.C.int;
+      Depth  : Interfaces.C.int;
+      Format : Interfaces.Unsigned_32)
+      return System.Address
+     with Import, Convention => C,
+          External_Name => "SDL_CreateRGBSurfaceWithFormat";
+
+   function SDL_UpperBlitScaled
+     (Src     : System.Address;
+      Srcrect : System.Address;
+      Dst     : System.Address;
+      Dstrect : System.Address)
+      return Interfaces.C.int
+     with Import, Convention => C,
+          External_Name => "SDL_UpperBlitScaled";
+
+   function SDL_GetError return Interfaces.C.Strings.chars_ptr
+     with Import, Convention => C,
+          External_Name => "SDL_GetError";
+
+   --  En-tete partiel de SDL_Surface (layout C x86_64)
+   type SDL_Surface_Header is record
+      Flags  : Interfaces.Unsigned_32;
+      Format : System.Address;
+      W      : Interfaces.C.int;
+      H      : Interfaces.C.int;
+      Pitch  : Interfaces.C.int;
+      Pixels : System.Address;
+   end record
+     with Convention => C;
+
+   package Srf_Conv is new System.Address_To_Access_Conversions
+     (SDL_Surface_Header);
+
+   --  SDL_RendererInfo (layout C)
+   type U32_Array_16 is
+     array (0 .. 15) of Interfaces.Unsigned_32
+     with Convention => C;
+
+   type SDL_RendererInfo is record
+      Name      : System.Address;
+      Flags     : Interfaces.Unsigned_32;
+      Num_Fmts  : Interfaces.Unsigned_32;
+      Fmts      : U32_Array_16;
+      Max_W     : Interfaces.C.int;
+      Max_H     : Interfaces.C.int;
+   end record
+     with Convention => C;
+
+   --  SDL_PIXELFORMAT_RGBA32 (byte-order RGBA, little-endian)
+   SDL_FMT_RGBA32 : constant Interfaces.Unsigned_32 :=
+     16#16762004#;
 
    --  Texture terrestre (fond de carte)
    Earth_Tex : System.Address := System.Null_Address;
@@ -190,8 +254,16 @@ package body UI.Renderer is
       Path : String)
    is
       use Interfaces.C.Strings;
+
       C_Path  : chars_ptr;
       Surface : System.Address;
+      Srf     : Srf_Conv.Object_Pointer;
+      Src_W   : int;
+      Src_H   : int;
+      Info    : SDL_RendererInfo;
+      Max_W   : int;
+      Max_H   : int;
+      Ignore  : int;
    begin
       if not Ada.Directories.Exists (Path) then
          Common.Logging.Log_Warning
@@ -207,8 +279,71 @@ package body UI.Renderer is
       if Surface = System.Null_Address then
          Common.Logging.Log_Error
            ("Renderer",
-            "IMG_Load a echoue pour " & Path);
+            "IMG_Load a echoue pour " & Path
+            & " : " & Value (SDL_GetError));
          return;
+      end if;
+
+      --  Lire les dimensions de l'image chargee
+      Srf := Srf_Conv.To_Pointer (Surface);
+      Src_W := Srf.W;
+      Src_H := Srf.H;
+
+      Common.Logging.Log_Info
+        ("Renderer",
+         "Image chargee :"
+         & Src_W'Image & "x" & Src_H'Image);
+
+      --  Limiter a la taille max du GPU
+      Ignore := SDL_GetRendererInfo (Rend, Info'Address);
+      Max_W := Info.Max_W;
+      Max_H := Info.Max_H;
+
+      if Max_W <= 0 then
+         Max_W := 8192;
+      end if;
+      if Max_H <= 0 then
+         Max_H := 8192;
+      end if;
+
+      if Src_W > Max_W or else Src_H > Max_H then
+         declare
+            Scale_W : constant Long_Float :=
+              Long_Float (Max_W) / Long_Float (Src_W);
+            Scale_H : constant Long_Float :=
+              Long_Float (Max_H) / Long_Float (Src_H);
+            Scale   : constant Long_Float :=
+              Long_Float'Min (Scale_W, Scale_H);
+            Dst_W   : constant int :=
+              int (Long_Float (Src_W) * Scale);
+            Dst_H   : constant int :=
+              int (Long_Float (Src_H) * Scale);
+            Scaled  : System.Address;
+         begin
+            Common.Logging.Log_Info
+              ("Renderer",
+               "Redimensionnement :"
+               & Dst_W'Image & "x" & Dst_H'Image
+               & " (max GPU :"
+               & Max_W'Image & "x" & Max_H'Image & ")");
+
+            Scaled := SDL_CreateRGBSurfaceWithFormat
+              (0, Dst_W, Dst_H, 32, SDL_FMT_RGBA32);
+
+            if Scaled = System.Null_Address then
+               Common.Logging.Log_Error
+                 ("Renderer",
+                  "SDL_CreateRGBSurfaceWithFormat a echoue");
+               SDL_FreeSurface (Surface);
+               return;
+            end if;
+
+            Ignore := SDL_UpperBlitScaled
+              (Surface, System.Null_Address,
+               Scaled, System.Null_Address);
+            SDL_FreeSurface (Surface);
+            Surface := Scaled;
+         end;
       end if;
 
       Earth_Tex := SDL_CreateTextureFromSurface (Rend, Surface);
@@ -217,13 +352,14 @@ package body UI.Renderer is
       if Earth_Tex = System.Null_Address then
          Common.Logging.Log_Error
            ("Renderer",
-            "SDL_CreateTextureFromSurface a echoue");
+            "SDL_CreateTextureFromSurface a echoue : "
+            & Value (SDL_GetError));
          return;
       end if;
 
       Common.Logging.Log_Info
         ("Renderer",
-         "Texture terrestre chargee : " & Path);
+         "Texture terrestre prete");
    end Load_Earth_Texture;
 
    ----------------------------------------------------------

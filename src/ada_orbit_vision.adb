@@ -35,7 +35,7 @@ pragma Unreferenced (Vision.Transformations);
 procedure Ada_Orbit_Vision is
 
    --  Chemins des fichiers de donnees
-   TLE_Path     : constant String := "data/sample.tle";
+   TLE_Path     : constant String := "data/gp.txt";
    Texture_Path : constant String := "assets/blue_marble.jpg";
 
    --  Parametres de rafraichissement
