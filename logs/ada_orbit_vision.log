@@ -12,3 +12,15 @@
 [2026-02-15 19:25:30] INFO  [Display] SDL2 ferme proprement
 [2026-02-15 19:25:30] INFO  [Main] Ada Orbit Vision arrete
 [2026-02-15 19:25:30] INFO  [Logging] Fermeture du logger
+[2026-02-16 17:16:52] INFO  [Logging] Logger initialise - niveau minimum : INFO
+[2026-02-16 17:16:52] INFO  [Main] Ada Orbit Vision demarre
+[2026-02-16 17:16:52] WARN  [Main] TLE invalide, ignore : TERRA
+[2026-02-16 17:16:52] INFO  [Main] Charge 0 satellite(s)
+[2026-02-16 17:16:52] INFO  [Display] Fenetre creee : 1024x 768
+[2026-02-16 17:16:53] ERROR [Renderer] SDL_CreateTextureFromSurface a echoue
+[2026-02-16 17:16:53] INFO  [Alert_System] Surveillance demarree
+[2026-02-16 17:18:11] INFO  [Main] Arret en cours...
+[2026-02-16 17:18:11] INFO  [Alert_System] Surveillance arretee
+[2026-02-16 17:18:11] INFO  [Display] SDL2 ferme proprement
+[2026-02-16 17:18:11] INFO  [Main] Ada Orbit Vision arrete
+[2026-02-16 17:18:11] INFO  [Logging] Fermeture du logger

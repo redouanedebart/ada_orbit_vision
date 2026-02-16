@@ -35,7 +35,8 @@ pragma Unreferenced (Vision.Transformations);
 procedure Ada_Orbit_Vision is
 
    --  Chemins des fichiers de donnees
-   TLE_Path : constant String := "data/sample.tle";
+   TLE_Path     : constant String := "data/sample.tle";
+   Texture_Path : constant String := "assets/blue_marble.jpg";
 
    --  Parametres de rafraichissement
    Refresh_Interval : aliased Duration := 2.0;
@@ -166,6 +167,10 @@ begin
    UI.Display.Initialize
      ("Ada Orbit Vision", 1024, 768);
 
+   --  3b. Texture terrestre (fond de carte)
+   UI.Renderer.Load_Earth_Texture
+     (UI.Display.Get_Renderer, Texture_Path);
+
    --  4. Alert Monitor
    Monitor := new
      Concurrency.Alert_System.Alert_Monitor
@@ -201,10 +206,13 @@ begin
          Rend : constant System.Address :=
            UI.Display.Get_Renderer;
       begin
-         --  Fond bleu fonce (ocean)
+         --  Fond bleu fonce (fallback si pas de texture)
          UI.Renderer.Clear
            (Rend,
             (R => 10, G => 15, B => 40, A => 255));
+
+         --  Texture terrestre en fond de carte
+         UI.Renderer.Draw_Earth_Background (Rend);
 
          --  Dessiner les satellites
          UI.Renderer.Draw_Satellites
@@ -261,6 +269,7 @@ begin
    Monitor.Stop;
 
    --  7. Fermeture SDL2
+   UI.Renderer.Destroy_Earth_Texture;
    UI.Display.Shutdown;
 
    --  8. Logger

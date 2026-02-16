@@ -38,6 +38,20 @@ package UI.Renderer is
    --  Presente le buffer a l'ecran (flip).
    procedure Present (Rend : System.Address);
 
+   --  Charge la texture terrestre depuis un fichier image.
+   --  Cree une SDL_Texture utilisee comme fond de carte.
+   procedure Load_Earth_Texture
+     (Rend : System.Address;
+      Path : String);
+
+   --  Dessine la texture terrestre en fond d'ecran.
+   --  Ne fait rien si aucune texture n'est chargee.
+   procedure Draw_Earth_Background
+     (Rend : System.Address);
+
+   --  Libere la texture terrestre.
+   procedure Destroy_Earth_Texture;
+
 private
 
    --  Imports SDL2 bas niveau
