@@ -31,6 +31,9 @@ package UI.Display is
    --  Retourne le prochain evenement ou Evt_None.
    function Poll_Event return UI_Event;
 
+   --  Bascule maximise / restaure (F11 ou bouton titre).
+   procedure Toggle_Maximize;
+
    --  Ferme proprement la fenetre et libere SDL2.
    procedure Shutdown;
 
@@ -41,6 +44,9 @@ package UI.Display is
    --  Dimensions de la fenetre
    function Get_Width return Positive;
    function Get_Height return Positive;
+
+   --  Scancodes SDL2 (publics pour la boucle d'evenements)
+   SDL_SCANCODE_F11 : constant Interfaces.C.int := 68;
 
 private
 
@@ -92,5 +98,28 @@ private
       return Interfaces.C.int
      with Import, Convention => C,
           External_Name => "SDL_PollEvent";
+
+   procedure SDL_GetWindowSize
+     (Window : System.Address;
+      W      : access Interfaces.C.int;
+      H      : access Interfaces.C.int)
+     with Import, Convention => C,
+          External_Name => "SDL_GetWindowSize";
+
+   function SDL_GetWindowFlags
+     (Window : System.Address)
+      return Interfaces.C.unsigned
+     with Import, Convention => C,
+          External_Name => "SDL_GetWindowFlags";
+
+   procedure SDL_MaximizeWindow
+     (Window : System.Address)
+     with Import, Convention => C,
+          External_Name => "SDL_MaximizeWindow";
+
+   procedure SDL_RestoreWindow
+     (Window : System.Address)
+     with Import, Convention => C,
+          External_Name => "SDL_RestoreWindow";
 
 end UI.Display;

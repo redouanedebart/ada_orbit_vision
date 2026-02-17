@@ -11,6 +11,7 @@
 --  8. Fermeture SDL2 et logger
 
 with System;
+with Interfaces.C;
 with Ada.Text_IO;
 with Ada.Directories;
 with Ada.Containers.Vectors;
@@ -214,12 +215,18 @@ begin
    loop
       --  Evenements SDL2
       declare
+         use type Interfaces.C.int;
          Evt : constant UI.Display.UI_Event :=
            UI.Display.Poll_Event;
       begin
          case Evt.Kind is
             when UI.Display.Evt_Quit =>
                exit Main_Loop;
+            when UI.Display.Evt_Key_Down =>
+               if Evt.Key = UI.Display.SDL_SCANCODE_F11
+               then
+                  UI.Display.Toggle_Maximize;
+               end if;
             when others =>
                null;
          end case;
