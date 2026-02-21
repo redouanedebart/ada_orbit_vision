@@ -233,3 +233,29 @@ Phase 0 (bugs)  →  Phase 1 (fullscreen)  →  Phase 2 (panel)  →  Phase 3 (s
 Phase 0 est un prérequis absolu — sans satellites visibles, rien d'autre n'a de sens.
 Phases 1 et 2 sont indépendantes et peuvent être développées en parallèle.
 Phases 3 et 4 sont séquentielles (la sélection doit exister avant le footprint).
+
+### État d'avancement
+
+| Phase | Statut | Notes |
+|-------|--------|-------|
+| 0 — Corrections TLE | **FAIT** | `Strip_CR` + `Max_Satellites=200` + vecteur dynamique |
+| 1 — Fullscreen (F11) | **FAIT** | `Toggle_Maximize` via `SDL_MaximizeWindow`/`SDL_RestoreWindow`, scancode remonté dans `Poll_Event` |
+| 2 — Panel latéral | **FAIT** | SDL_ttf intégré (`-lSDL2_ttf`), police DejaVu Sans Mono embarquée (`assets/fonts/`), `Draw_Panel` avec liste satellites (nom, NORAD ID, altitude, indicateur couleur), toggle via Tab, zone carte ajustée (`W - Panel_Width`) |
+| 3 — Sélection satellite | **FAIT** | Clic carte + panel, `Find_Sat_At_Map_Click`, `Find_Sat_At_Panel_Click`, surbrillance `Draw_Satellites` / `Draw_Panel` |
+| 4 — Footprint | **FAIT** | `Engine.Footprint` (Half_Angle_Rad, Compute_Polygon), `Draw_Footprint` (fan fill + contour, gestion antimeridien) |
+
+**Fichiers modifiés en Phases 3 & 4** :
+- `src/engine/engine-footprint.ads/.adb` — nouveau module : `Half_Angle_Rad`, `Compute_Polygon` (sphérique)
+- `src/ui/ui-renderer.ads` — `Draw_Satellites` (+`Selected_Sat`, +`Font`), `Draw_Panel` (+`Selected_Sat`), `Draw_Footprint`, `Find_Sat_At_Map_Click`, `Find_Sat_At_Panel_Click`, import `SDL_RenderDrawRect`
+- `src/ui/ui-renderer.adb` — `with Engine.Footprint`, implémentations des 5 procédures/fonctions, palette `Sat_Colours` factorisée, couleurs texte constantes
+- `src/ada_orbit_vision.adb` — `Selected_Sat`, `Pending_Click*`, gestion `Evt_Mouse_Click`, appel `Draw_Footprint`, `Station.Get_Position`, paramètres `Selected_Sat`/`Font` aux appels renderer
+
+**Fichiers modifiés en Phase 2** :
+- `ada_orbit_vision.gpr` — ajout `-lSDL2_ttf` aux switches linker
+- `install.sh` — ajout check `libSDL2_ttf`
+- `assets/fonts/DejaVuSansMono.ttf` — police monospace embarquée (licence Bitstream Vera)
+- `src/ui/ui-display.ads` — `Get_Font`, `SDL_SCANCODE_TAB`, imports TTF (TTF_Init, TTF_Quit, TTF_OpenFont, TTF_CloseFont)
+- `src/ui/ui-display.adb` — init TTF + chargement police dans `Initialize`, cleanup dans `Shutdown`, accesseur `Get_Font`
+- `src/ui/ui-renderer.ads` — `Draw_Panel` (Rend, Font, Snapshots, W, H, Panel_Width)
+- `src/ui/ui-renderer.adb` — `Render_Text` helper (TTF_RenderUTF8_Blended + SDL texture), `Draw_Panel` (fond semi-transparent, bordure, titre, liste scrollable, compteur), imports SDL_SetRenderDrawBlendMode / SDL_SetTextureBlendMode
+- `src/ada_orbit_vision.adb` — `Panel_Open` + Tab toggle, `Map_W` (largeur effective carte), appel `Draw_Panel`

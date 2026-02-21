@@ -29,6 +29,7 @@ check_dep alr      "Install Alire: https://alire.ada.dev"
 check_dep gnat     "Install GNAT: sudo apt install gnat"
 check_lib libSDL2  libsdl2-dev
 check_lib libSDL2_image libsdl2-image-dev
+check_lib libSDL2_ttf  libsdl2-ttf-dev
 
 echo "[1/4] Building project (release mode)..."
 cd "$SCRIPT_DIR"

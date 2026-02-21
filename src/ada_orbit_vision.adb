@@ -185,6 +185,16 @@ procedure Ada_Orbit_Vision is
    -------------------------------------------------------
 
    Has_Alert : Boolean := False;
+   Panel_Open : Boolean := True;
+   Panel_Width : constant := 280;
+
+   --  Satellite selectionne (NORAD ID, 0 = aucun)
+   Selected_Sat : Natural := 0;
+
+   --  Clic en attente de traitement dans la boucle de rendu
+   Pending_Click   : Boolean := False;
+   Pending_Click_X : Integer := 0;
+   Pending_Click_Y : Integer := 0;
 
 begin
    --  1. Logger
@@ -213,24 +223,42 @@ begin
    --  5. Boucle principale
    Main_Loop :
    loop
-      --  Evenements SDL2
-      declare
-         use type Interfaces.C.int;
-         Evt : constant UI.Display.UI_Event :=
-           UI.Display.Poll_Event;
-      begin
-         case Evt.Kind is
-            when UI.Display.Evt_Quit =>
-               exit Main_Loop;
-            when UI.Display.Evt_Key_Down =>
-               if Evt.Key = UI.Display.SDL_SCANCODE_F11
-               then
-                  UI.Display.Toggle_Maximize;
-               end if;
-            when others =>
-               null;
-         end case;
-      end;
+      --  Drainer toute la file d'evenements SDL2.
+      --  Obligatoire pour repondre aux pings du gestionnaire
+      --  de fenetres (sinon popup "ne repond pas" sous Linux).
+      Event_Loop :
+      loop
+         declare
+            use type Interfaces.C.int;
+            use type UI.Display.Event_Kind;
+            Evt : constant UI.Display.UI_Event :=
+              UI.Display.Poll_Event;
+         begin
+            exit Event_Loop when
+              Evt.Kind = UI.Display.Evt_None;
+
+            case Evt.Kind is
+               when UI.Display.Evt_Quit =>
+                  exit Main_Loop;
+               when UI.Display.Evt_Key_Down =>
+                  if Evt.Key = UI.Display.SDL_SCANCODE_F11
+                  then
+                     UI.Display.Toggle_Maximize;
+                  elsif Evt.Key = UI.Display.SDL_SCANCODE_TAB
+                  then
+                     Panel_Open := not Panel_Open;
+                  end if;
+               when UI.Display.Evt_Mouse_Click =>
+                  --  Stocker le clic pour traitement dans
+                  --  le bloc de rendu (acces au snapshot)
+                  Pending_Click   := True;
+                  Pending_Click_X := Integer (Evt.Mouse_X);
+                  Pending_Click_Y := Integer (Evt.Mouse_Y);
+               when others =>
+                  null;
+            end case;
+         end;
+      end loop Event_Loop;
 
       --  Lire le snapshot complet
       declare
@@ -243,7 +271,44 @@ begin
            UI.Display.Get_Height;
          Rend : constant System.Address :=
            UI.Display.Get_Renderer;
+         Map_W : constant Positive :=
+           (if Panel_Open and then W > Panel_Width
+            then W - Panel_Width
+            else W);
       begin
+         --  Traitement du clic en attente
+         if Pending_Click then
+            Pending_Click := False;
+            declare
+               Found : Natural;
+            begin
+               if Panel_Open
+                 and then W > Panel_Width
+                 and then Pending_Click_X >= W - Panel_Width
+               then
+                  Found := UI.Renderer.Find_Sat_At_Panel_Click
+                    (Sats,
+                     Interfaces.C.int (Pending_Click_X),
+                     Interfaces.C.int (Pending_Click_Y),
+                     W, H, Panel_Width);
+               else
+                  Found := UI.Renderer.Find_Sat_At_Map_Click
+                    (Sats,
+                     Interfaces.C.int (Pending_Click_X),
+                     Interfaces.C.int (Pending_Click_Y),
+                     Map_W, H);
+               end if;
+
+               if Found /= 0 then
+                  Selected_Sat := Found;
+                  Common.Logging.Log_Info
+                    ("Main",
+                     "Satellite selectionne : NORAD"
+                     & Found'Image);
+               end if;
+            end;
+         end if;
+
          --  Fond bleu fonce (fallback si pas de texture)
          UI.Renderer.Clear
            (Rend,
@@ -252,9 +317,27 @@ begin
          --  Texture terrestre en fond de carte
          UI.Renderer.Draw_Earth_Background (Rend);
 
-         --  Dessiner les satellites
+         --  Footprint du satellite selectionne
+         --  (dessin entre le fond et les satellites)
+         if Selected_Sat /= 0 then
+            declare
+               Snap  : Satellite_Snapshot;
+               Found : Boolean;
+            begin
+               Station.Get_Position
+                 (Sat_Id (Selected_Sat), Snap, Found);
+               if Found then
+                  UI.Renderer.Draw_Footprint
+                    (Rend, Snap, Map_W, H);
+               end if;
+            end;
+         end if;
+
+         --  Dessiner les satellites (zone carte effective)
          UI.Renderer.Draw_Satellites
-           (Rend, Sats, W, H);
+           (Rend, Sats, Map_W, H,
+            Selected_Sat,
+            UI.Display.Get_Font);
 
          --  Alerte si collision detectee
          Has_Alert := False;
@@ -286,6 +369,15 @@ begin
 
          if Has_Alert then
             UI.Renderer.Draw_Alert_Overlay (Rend, W);
+         end if;
+
+         --  Panel lateral
+         if Panel_Open then
+            UI.Renderer.Draw_Panel
+              (Rend,
+               UI.Display.Get_Font,
+               Sats, W, H, Panel_Width,
+               Selected_Sat);
          end if;
 
          --  Presenter

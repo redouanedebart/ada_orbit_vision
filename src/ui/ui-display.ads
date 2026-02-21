@@ -47,6 +47,11 @@ package UI.Display is
 
    --  Scancodes SDL2 (publics pour la boucle d'evenements)
    SDL_SCANCODE_F11 : constant Interfaces.C.int := 68;
+   SDL_SCANCODE_TAB : constant Interfaces.C.int := 43;
+
+   --  Accesseur vers la police chargee (SDL_ttf).
+   --  Retourne Null_Address si la police n'est pas chargee.
+   function Get_Font return System.Address;
 
 private
 
@@ -121,5 +126,26 @@ private
      (Window : System.Address)
      with Import, Convention => C,
           External_Name => "SDL_RestoreWindow";
+
+   --  SDL_ttf imports
+   function TTF_Init return Interfaces.C.int
+     with Import, Convention => C,
+          External_Name => "TTF_Init";
+
+   procedure TTF_Quit
+     with Import, Convention => C,
+          External_Name => "TTF_Quit";
+
+   function TTF_OpenFont
+     (File : Interfaces.C.char_array;
+      Size : Interfaces.C.int)
+      return System.Address
+     with Import, Convention => C,
+          External_Name => "TTF_OpenFont";
+
+   procedure TTF_CloseFont
+     (Font : System.Address)
+     with Import, Convention => C,
+          External_Name => "TTF_CloseFont";
 
 end UI.Display;

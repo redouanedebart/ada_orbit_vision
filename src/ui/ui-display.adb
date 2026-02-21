@@ -9,8 +9,14 @@ package body UI.Display is
    --  Etat interne du module
    Win_Ptr       : System.Address := System.Null_Address;
    Rend_Ptr      : System.Address := System.Null_Address;
+   Font_Ptr      : System.Address := System.Null_Address;
    Win_W : Positive := 1024;
    Win_H : Positive := 768;
+
+   --  Chemin de la police embarquee
+   Font_Path : constant String :=
+     "assets/fonts/DejaVuSansMono.ttf";
+   Font_Size : constant := 13;
 
    --  Constantes SDL2
    SDL_WINDOWPOS_CENTERED : constant := 16#2FFF0000#;
@@ -100,6 +106,24 @@ package body UI.Display is
         ("Display",
          "Fenetre creee :"
          & Width'Image & "x" & Height'Image);
+
+      --  Initialiser SDL_ttf et charger la police
+      Ret := TTF_Init;
+      if Ret /= 0 then
+         Common.Logging.Log_Warning
+           ("Display", "Echec TTF_Init -- pas de texte");
+      else
+         Font_Ptr := TTF_OpenFont
+           (To_C (Font_Path), Font_Size);
+         if Font_Ptr = System.Null_Address then
+            Common.Logging.Log_Warning
+              ("Display",
+               "Police introuvable : " & Font_Path);
+         else
+            Common.Logging.Log_Info
+              ("Display", "Police chargee : " & Font_Path);
+         end if;
+      end if;
    end Initialize;
 
    ----------------------------------------------------------
@@ -176,6 +200,13 @@ package body UI.Display is
 
    procedure Shutdown is
    begin
+      if Font_Ptr /= System.Null_Address then
+         TTF_CloseFont (Font_Ptr);
+         Font_Ptr := System.Null_Address;
+      end if;
+
+      TTF_Quit;
+
       if Rend_Ptr /= System.Null_Address then
          SDL_DestroyRenderer (Rend_Ptr);
          Rend_Ptr := System.Null_Address;
@@ -210,5 +241,10 @@ package body UI.Display is
    begin
       return Win_H;
    end Get_Height;
+
+   function Get_Font return System.Address is
+   begin
+      return Font_Ptr;
+   end Get_Font;
 
 end UI.Display;
